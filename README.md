@@ -31,6 +31,35 @@ tmux
 
 Reload after edits with `prefix + r`.
 
+## Sesh setup
+
+[`sesh`](https://github.com/joshmedeski/sesh) powers `prefix + T` (multi-source picker) and `prefix + o` (jump to last session). It works with **zero config** — out of the box it pulls tmux sessions, zoxide directories, and `fd` results.
+
+**Install** (pick one):
+
+```bash
+# Go (what's installed on this machine — drops the binary in ~/.local/bin or ~/go/bin)
+go install github.com/joshmedeski/sesh/v2@latest
+
+# Homebrew (macOS / Linuxbrew)
+brew install joshmedeski/sesh/sesh
+
+# Or grab a prebuilt binary from the releases page:
+#   https://github.com/joshmedeski/sesh/releases
+```
+
+Make sure the install directory is on `$PATH` (e.g. `~/.local/bin` or `~/go/bin`).
+
+**Optional helpers** — sesh's source modes degrade gracefully if these are missing, but the picker is much nicer with them installed:
+
+| Tool | Powers |
+|---|---|
+| `fzf` | The picker UI itself (also required by tmux's `prefix + O`) |
+| `zoxide` | `Ctrl-x` recent-directories source in the picker |
+| `fd` | `Ctrl-f` find-mode (`fd -H -d 2 -t d -E .Trash . ~`) |
+
+**Config** (optional) — drop a `~/.config/sesh/sesh.toml` to predefine named sessions, startup commands, or per-project layouts. See the [sesh README](https://github.com/joshmedeski/sesh#configuration) for the schema. Without it, sesh runs on defaults.
+
 ## Prefix
 
 The prefix key is **`` ` ``** (backtick), not `Ctrl-b`. Press backtick twice to type a literal backtick.
