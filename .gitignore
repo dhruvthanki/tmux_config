@@ -1,0 +1,5 @@
+# TPM-managed plugins (re-cloned by `prefix + I`)
+plugins/
+
+# tmux-resurrect saved sessions
+resurrect/
