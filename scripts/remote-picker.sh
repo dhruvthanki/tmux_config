@@ -43,8 +43,14 @@ dot_for_local_session() {
 }
 
 list_rows() {
-  local tmp
+  local tmp local_host_id
   tmp="$(mktemp -d)"
+  # config/hosts.conf is the same file on every machine (synced by
+  # remote-bootstrap.sh), so a host entry that happens to point back at
+  # whichever machine is running this script must be skipped — otherwise
+  # running the picker on rlpc, with "rlpc" in hosts.conf, ssh's into itself
+  # and lists every local session twice.
+  local_host_id="$(hostname -s 2>/dev/null || hostname)"
 
   {
     while IFS=$'\t' read -r name windows; do
@@ -57,11 +63,15 @@ list_rows() {
   while IFS= read -r h; do
     i=$((i + 1))
     {
-      ssh "${SSH_OPTS[@]}" "$h" "tmux list-sessions -F '#{session_name}	#{session_windows} win'" 2>/dev/null |
+      ssh "${SSH_OPTS[@]}" "$h" "hostname -s; tmux list-sessions -F '#{session_name}	#{session_windows} win'" 2>/dev/null |
+      {
+        read -r remote_host_id
+        [[ "$remote_host_id" == "$local_host_id" ]] && exit 0
         while IFS=$'\t' read -r name windows; do
           [[ -z "$name" ]] && continue
           printf '\033[90m\xe2\x97\x8b\033[0m\t%s\t%s\t%s\n' "$h" "$name" "$windows"
         done
+      }
     } >"$tmp/r$i" &
   done < <(hosts)
 
