@@ -1,6 +1,6 @@
 # tmux_config
 
-Personal tmux setup with vi-style copy mode, fzf/sesh session switching, gruvbox theme, and persistent sessions across reboots via tmux-resurrect + tmux-continuum.
+Personal tmux setup with vi-style copy mode, fzf/sesh session switching, gruvbox theme, and persistent sessions across reboots via tmux-resurrect + tmux-continuum. Also carries `tmux-sessionizer` and a cross-host session switcher, so the same clone works identically on every machine — see [Remote hosts](#remote-hosts) below.
 
 Lives at `~/.config/tmux/`.
 
@@ -9,27 +9,30 @@ Lives at `~/.config/tmux/`.
 | Tool | Why |
 |---|---|
 | `tmux` ≥ 3.2 | Popups, hooks, modern options |
-| `git` | TPM clones plugins via git |
-| `fzf` | Session picker + key-binding help |
+| `git` | TPM clones plugins via git; `remote-bootstrap.sh` clones/pulls this repo onto new hosts |
+| `fzf` | Session pickers, key-binding help, `tmux-sessionizer` |
+| `ssh` | `prefix + Space` cross-host switcher; needs key-based access to any host in `config/hosts.conf` already set up |
 | `sesh` | Multi-source session switcher (`prefix + T`, `prefix + o`) |
 | `fd` | `ctrl-f` find-mode in the sesh picker |
-| `xclip` | System clipboard yank from copy mode |
+| `pbcopy` (macOS) / `xclip` (Linux) | System clipboard yank from copy mode — picked automatically per host |
 | `zoxide` (optional) | `ctrl-x` zoxide source in sesh picker |
 
 ## Install
 
 ```bash
-git clone git@github.com:dhruvthanki/tmux_config.git ~/.config/tmux
+git clone git@github-personal:dhruvthanki/tmux_config.git ~/.config/tmux
 
 # TPM (plugin manager) is required and not vendored — clone it once:
 git clone https://github.com/tmux-plugins/tpm ~/.config/tmux/plugins/tpm
+
+./install.sh   # symlinks tmux-sessionizer + its config into place
 
 # Start tmux, then install plugins
 tmux
 #   inside tmux:  prefix + I    (capital i)
 ```
 
-Reload after edits with `prefix + r`.
+Reload after edits with `prefix + r`. On a host already added to `config/hosts.conf`, the very first `prefix + Space` attach to that host runs all of the above (clone/pull, TPM, `install.sh`) automatically via `remote-bootstrap.sh` — the manual steps above are only needed on the first machine, or on a brand-new host before it has SSH access to the git remote.
 
 ## Sesh setup
 
@@ -73,6 +76,7 @@ The prefix key is **`` ` ``** (backtick), not `Ctrl-b`. Press backtick twice to 
 | Keys | Action |
 |---|---|
 | `prefix O` | fzf popup session switcher (creates if name is new, `Ctrl-K` to kill) |
+| `prefix Space` | cross-host session switcher — local + every host in `config/hosts.conf` (`Ctrl-K` to kill) |
 | `prefix T` | sesh popup with multi-source switching (see sesh modes below) |
 | `prefix o` | jump to last session (via sesh) |
 | `prefix S` | prompt for name and create new session |
@@ -202,12 +206,36 @@ Gruvbox dark with a custom status line:
 | Right Y | `YYYY-MM-DD HH:MM` |
 | Right Z | hostname |
 
+## Remote hosts
+
+`config/hosts.conf` lists one SSH alias per line (blank/`#` lines ignored); `prefix + Space` merges `tmux list-sessions` from all of them with local sessions into one fzf popup. Deliberately minimal:
+
+- **No control-mode bridge.** A remote pick opens a plain `ssh -t host tmux new -A -s session` in a new local window. Every keybinding, plugin, and bit of scrollback in that session is real, because it's a real independent tmux server — nothing is proxied or translated. The cost is a nested status bar/prefix in that one window, same as SSH+tmux has always had.
+- **Auto-provisions new hosts.** First attach to a host not yet synced runs `remote-bootstrap.sh`: clone-or-pull this repo there, install TPM + plugins, run `install.sh`. After that, every host runs the *actual* config, not a hand-maintained copy — add a 3rd/4th machine by adding one line to `hosts.conf`, nothing else. This only works once a host already has SSH access to the git remote (the personal deploy key placed there) — that one bit of trust can't be bootstrapped remotely.
+- **Doesn't create remote sessions.** Only lists what's already running. To spin up a new session on a host, use `tmux-sessionizer` from a shell on that host (see below).
+- **No live activity dot for remote sessions yet.** The dot next to local sessions (see below) only reads this machine's status files today; wiring the same read over SSH per host is a small, deliberately deferred follow-up.
+
+## tmux-sessionizer
+
+[ThePrimeagen's script](https://github.com/ThePrimeagen/.dotfiles), extended, in `scripts/tmux-sessionizer` + `config/tmux-sessionizer.conf` (symlinked to `~/.local/bin` and `~/.config/tmux-sessionizer/` by `install.sh`). Fuzzy-picks a project directory under `TS_SEARCH_PATHS` *or* an already-running local tmux session, and attaches — creating the session from the directory name if it doesn't exist yet. Not bound to a tmux key here; invoke it directly from a shell (or bind it in your terminal emulator).
+
+Extensions beyond the stock script: `TS_SESSION_COMMANDS` reserves windows at index 69+ for fixed companion commands per project (`-s 0` → the `claude .` window here, with pane-cache so `--vsplit`/`--hsplit` reuse it instead of duplicating), and `.tmux-sessionizer` hydration files let a project auto-run setup commands into a freshly created session.
+
+## Agent activity dots
+
+`scripts/agent-status-hook.sh <working|waiting|idle>` writes one line to a file per pane (`$TMUX_PANE`), read by `remote-picker.sh` to show a colored dot (green/yellow/grey) next to each local session. Wire it into lifecycle hooks so it actually gets called — e.g. Claude Code's `~/.claude/settings.json` hooks (`PreToolUse` → `working`, a permission/notification hook → `waiting`, `Stop` → `idle`); Codex has its own hook config with equivalent events. Without any hooks wired up, sessions just show the plain grey "idle" dot.
+
 ## Custom scripts
 
 Lives in `scripts/`:
 
 - **`session-fzf.sh`** — backs `prefix + O`. Lists tmux sessions, lets you switch, kill (`Ctrl-K`), or create-by-typing-and-pressing-enter.
-- **`session-preview.sh`** — preview pane for the picker; shows the windows/panes inside the highlighted session.
+- **`session-preview.sh`** — preview pane for the picker; shows the windows/panes inside the highlighted session. Reused as-is for remote previews (piped over SSH, since it only ever calls `tmux`).
+- **`remote-picker.sh`** — backs `prefix + Space`; see [Remote hosts](#remote-hosts).
+- **`remote-preview.sh`** — preview pane for `remote-picker.sh`; local or piped-over-SSH `session-preview.sh`.
+- **`remote-bootstrap.sh`** — syncs a host's dotfiles/plugins/symlinks; called automatically, or run directly with `--force` to resync.
+- **`agent-status-hook.sh`** — see [Agent activity dots](#agent-activity-dots).
+- **`tmux-sessionizer`** — see [tmux-sessionizer](#tmux-sessionizer).
 
 ## Notable behavior
 
@@ -216,19 +244,28 @@ Lives in `scripts/`:
 - **Windows + panes start at 1**, not 0. Renumber on close.
 - **No automatic window renaming** (`allow-rename off`) so titles you set stay set.
 - **256-color + true color** via `tmux-256color` + `Tc` override.
-- **Clipboard** synced through OSC 52 (`set-clipboard on`) and explicit `xclip` in copy mode.
+- **Clipboard** synced through OSC 52 (`set-clipboard on`) and an explicit copy-mode binding that picks `pbcopy` or `xclip` per host.
 
 ## File layout
 
 ```
 ~/.config/tmux/
-├── tmux.conf              # the config
-├── README.md              # this file
-├── .gitignore             # ignores plugins/ and resurrect/
+├── tmux.conf                    # the config
+├── install.sh                   # symlinks scripts/config into ~/.local/bin etc.
+├── README.md                    # this file
+├── .gitignore                   # ignores plugins/ and resurrect/
+├── config/
+│   ├── hosts.conf                 # remote-picker.sh's host list
+│   └── tmux-sessionizer.conf       # tmux-sessionizer's search paths
 ├── scripts/
 │   ├── session-fzf.sh
-│   └── session-preview.sh
-└── plugins/               # TPM-managed (gitignored)
+│   ├── session-preview.sh
+│   ├── remote-picker.sh
+│   ├── remote-preview.sh
+│   ├── remote-bootstrap.sh
+│   ├── agent-status-hook.sh
+│   └── tmux-sessionizer
+└── plugins/                     # TPM-managed (gitignored)
     ├── tpm/
     └── ...
 ```
