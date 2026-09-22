@@ -148,7 +148,7 @@ Copy mode uses **vi keys** (`set -g mode-keys vi`). Enter copy mode with `prefix
 |---|---|
 | `v` | Begin character selection |
 | `Ctrl-v` | Toggle rectangular (block) selection |
-| `y` / `Y` | Yank selection to system clipboard via `xclip` and exit copy mode |
+| `y` / `Y` | Yank selection to system clipboard (`pbcopy`/`xclip`, picked per host) and exit copy mode |
 | `q` | Exit copy mode |
 
 Mouse drag does **not** exit copy mode (`MouseDragEnd1Pane` unbound).
@@ -214,6 +214,7 @@ Gruvbox dark with a custom status line:
 - **Auto-provisions new hosts.** First attach to a host not yet synced runs `remote-bootstrap.sh`: clone-or-pull this repo there, install TPM + plugins, run `install.sh`. After that, every host runs the *actual* config, not a hand-maintained copy — add a 3rd/4th machine by adding one line to `hosts.conf`, nothing else. This only works once a host already has SSH access to the git remote (the personal deploy key placed there) — that one bit of trust can't be bootstrapped remotely.
 - **Doesn't create remote sessions.** Only lists what's already running. To spin up a new session on a host, use `tmux-sessionizer` from a shell on that host (see below).
 - **No live activity dot for remote sessions yet.** The dot next to local sessions (see below) only reads this machine's status files today; wiring the same read over SSH per host is a small, deliberately deferred follow-up.
+- **Safe to list a host that's also the current machine.** Since `hosts.conf` is synced verbatim to every host, running the picker *on* rlpc still has `rlpc` in its own copy of the file — `remote-picker.sh` compares each configured host's `hostname` against the local one and skips it, so it never tries to SSH into itself.
 
 ## tmux-sessionizer
 
