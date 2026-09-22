@@ -14,7 +14,7 @@ Lives at `~/.config/tmux/`.
 | `ssh` | `prefix + Space` cross-host switcher; needs key-based access to any host in `config/hosts.conf` already set up |
 | `sesh` | Multi-source session switcher (`prefix + T`, `prefix + o`) |
 | `fd` | `ctrl-f` find-mode in the sesh picker |
-| `pbcopy` (macOS) / `xclip` (Linux) | System clipboard yank from copy mode — picked automatically per host |
+| — | Clipboard yank needs no host tool — tmux's own OSC 52 forwarding (`set-clipboard on`) reaches the real terminal even through nested SSH/tmux, including headless remotes with no `xclip`/`DISPLAY` |
 | `zoxide` (optional) | `ctrl-x` zoxide source in sesh picker |
 
 ## Install
@@ -148,7 +148,7 @@ Copy mode uses **vi keys** (`set -g mode-keys vi`). Enter copy mode with `prefix
 |---|---|
 | `v` | Begin character selection |
 | `Ctrl-v` | Toggle rectangular (block) selection |
-| `y` / `Y` | Yank selection to system clipboard (`pbcopy`/`xclip`, picked per host) and exit copy mode |
+| `y` / `Y` | Yank selection to system clipboard via OSC 52 and exit copy mode — works from a remote/nested session too, straight to your actual terminal's clipboard |
 | `q` | Exit copy mode |
 
 Mouse drag does **not** exit copy mode (`MouseDragEnd1Pane` unbound).
@@ -245,7 +245,7 @@ Lives in `scripts/`:
 - **Windows + panes start at 1**, not 0. Renumber on close.
 - **No automatic window renaming** (`allow-rename off`) so titles you set stay set.
 - **256-color + true color** via `tmux-256color` + `Tc` override.
-- **Clipboard** synced through OSC 52 (`set-clipboard on`) and an explicit copy-mode binding that picks `pbcopy` or `xclip` per host.
+- **Clipboard** synced purely through OSC 52 (`set-clipboard on` + an explicit `Ms` terminfo override) — no `pbcopy`/`xclip` dependency, and no per-host clipboard tool needed at all. This matters specifically for headless remotes: no `DISPLAY` means `xclip` can never work there, and even where it does, an OS clipboard command only ever reaches *that host's* clipboard, not the terminal you're actually looking at.
 
 ## File layout
 
