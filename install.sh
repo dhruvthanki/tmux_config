@@ -12,6 +12,11 @@ REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BIN_DIR="$HOME/.local/bin"
 mkdir -p "$BIN_DIR"
 
+# Executable bits are already committed correctly; without this, this
+# chmod (needed on a clone made by something that drops the bit) shows up
+# as a dirty mode-only diff and blocks remote-bootstrap.sh's next pull.
+git -C "$REPO_DIR" config core.fileMode false
+
 chmod +x "$REPO_DIR"/scripts/*.sh "$REPO_DIR/scripts/tmux-sessionizer"
 
 ln -sf "$REPO_DIR/scripts/tmux-sessionizer" "$BIN_DIR/tmux-sessionizer"
